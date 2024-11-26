@@ -20,9 +20,9 @@ public class selenium {
             .filename(".env") // instead of '.env', use 'env'
             .load();
     static final String HUB = dotenv.get("HUB");
-    static final String Groups = dotenv.get("Groups");
-    static final String Site = dotenv.get("Site");
-    static final String Screenshots = dotenv.get("Scrennshots");
+    static final String Groups = dotenv.get("GROUPS");
+    static final String Site = dotenv.get("SITE");
+    static final String Screenshots = dotenv.get("SCREENSHOTS");
 
     //        public static void main(String[] args) throws MalformedURLException {
 //            writeGroups();
