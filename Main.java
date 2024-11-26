@@ -1,6 +1,7 @@
 import et.telebof.BotClient;
 import et.telebof.enums.MenuButtonType;
 import et.telebof.enums.PollType;
+import et.telebof.filters.CustomFilter;
 import et.telebof.types.*;
 import io.github.cdimascio.dotenv.Dotenv;
 
@@ -15,6 +16,33 @@ import java.io.File;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+class UnknownCommandFilter implements CustomFilter {
+    private final BotCommand[] knownCommands;
+
+    public UnknownCommandFilter(BotCommand[] commands) {
+        this.knownCommands = commands;
+    }
+
+    @Override
+    public boolean check(Update update) {
+        // Проверяем, что сообщение начинается с "/"
+        if (update.message.text == null || !update.message.text.startsWith("/")) {
+            return false;
+        }
+
+        // Извлекаем команду (первое слово после "/")
+        String command = update.message.text.split(" ")[0];
+
+        // Проверяем, что команда не совпадает с известными командами
+        for (BotCommand knownCommand : knownCommands) {
+            if (command.equals(knownCommand.command)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
 public class Main {
 
     // Карта для отслеживания запросов пользователей
@@ -76,7 +104,7 @@ public class Main {
         // загружаем кнопки
         loadButtonLabels(Groups);
 
-
+        //bot.context.sendMessage("Hello, World").exec();
         bot.onMessage(filter -> filter.commands("start"), (context, message) -> {
             // Отправка стикера и сообщения как обычно
             //bot.context.sendAnimation("CAACAgIAAxkBAAELTE5lu6ccE1JFDxbsKOmJouqFaLrpDwACOyIAAr7maUv7VPeYre_DojQE").exec();
@@ -164,8 +192,6 @@ public class Main {
                     "/help - Получить список команд").exec();
         });
 
-
-
         bot.onMessage(filter -> filter.commands("quarantine"), (context, message) -> {
             String question = "Болеете ли вы со справкой?";
             InputPollOption[] options = {
@@ -185,6 +211,12 @@ public class Main {
                     .explanation("Мы институт, мы не знаем что такое карантин")
                     .exec();
         });
+        bot.onMessage(
+                filter -> filter.text() && filter.customFilter(new UnknownCommandFilter(BotCommand)),
+                (context, message) -> {
+                    context.sendMessage("Извините, такой команды не существует. Пожалуйста, введите /start для получения списка доступных команд.").exec();
+                }
+        );
 
 //        bot.onMessage(filter -> !filter.commands(), (context, message) -> {
 //            // Ответ на неизвестную команду
