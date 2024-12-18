@@ -26,6 +26,7 @@
                     <compilerArgs>--enable-preview</compilerArgs>
                 </configuration>
             </plugin>
+            <!-- Плагин для запуска программы -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
@@ -36,7 +37,8 @@
                             <goal>java</goal>
                         </goals>
                         <configuration>
-                            <mainClass>Main</mainClass>
+                            <!-- Укажите имя основного класса -->
+                            <mainClass>Main</mainClass> <!-- Класс Main в дефолтном пакете -->
                         </configuration>
                     </execution>
                 </executions>
