@@ -1,0 +1,7 @@
+#version: "3.5"
+services:
+  java_bob:
+    image: java_bot
+    container_name: java_bot
+    restart: unless-stopped
+    network_mode: host # на ваш выбор
