@@ -12,7 +12,7 @@ import java.util.concurrent.Executors;
 class CheckHandler {
 
     static Dotenv dotenv = Dotenv.configure()
-            .directory("./")
+            .directory("/app")
             .filename(".env")
             .load();
     static final String Screenshots = dotenv.get("SCREENSHOTS");// adjust accordingly
@@ -67,6 +67,81 @@ class CheckHandler {
             }
         });
     }
+
+    // преподы
+
+    public static void handleCheckTeach(BotClient bot, Message message, long userId,
+                                        String callbackData, // Новый параметр
+                                        List<String> buttonLabelsTech,
+                                        Map<Long, List<Long>> userRequestTimestamps) {
+        // Проверка лимита запросов
+        try {
+            // БЛОК 1: Проверка лимита запросов
+            if (isRateLimitExceeded(userId, userRequestTimestamps)) {
+                bot.context.sendMessage("⚠️ Превышен лимит запросов. Пожалуйста, подождите 10 минут перед следующим запросом.").exec();
+                return;
+            }
+
+            // БЛОК 2: Регистрация запроса в системе учета
+            recordUserRequest(userId, userRequestTimestamps);
+
+            // БЛОК 3: Определение имени преподавателя из входящего запроса
+            String targetTeacher;
+            if (message.text != null && message.text.startsWith("/checkt ")) {
+                // Обработка прямой команды из чата
+                String[] parts = message.text.split(" ", 2);
+                System.err.println(parts);
+                if (parts.length < 2) {
+                    bot.context.sendMessage("Введите фамилию преподавателя после команды /checkt").exec();
+                    return;
+                }
+                targetTeacher = parts[1].trim().toLowerCase();
+                System.err.println(targetTeacher);
+                bot.context.sendMessage(targetTeacher);
+            } else if (callbackData != null && callbackData.startsWith("/checkt ")) {
+                targetTeacher = callbackData.substring(8);
+            } else {
+                bot.context.sendMessage("Некорректный формат запроса").exec();
+                return;
+            }
+
+            // БЛОК 4: Отправка сообщения о начале обработки
+            var processingMessage = bot.context.sendMessage("Обрабатываю запрос для преподавателя: " + targetTeacher).exec();
+            var messageID = processingMessage.message_id;
+
+            // БЛОК 5: Асинхронное выполнение запроса
+            seleniumExecutor.submit(() -> {
+                try {
+                    // Подблок 5.1: Получение данных через Selenium
+                    String result = selenium.performTaskTech(targetTeacher);
+
+                    // Подблок 5.2: Обновление статусного сообщения
+                    bot.context.editMessageText("Результат: " + result, message.chat.id, messageID).exec();
+
+                    // Подблок 5.3: Отправка скриншотов расписания
+                    // Первый скриншот - основное расписание
+                    File mainSchedule = new File(Screenshots + targetTeacher.toUpperCase() + ".png");
+                    // Второй скриншот - дополнительная информация
+                    File additionalSchedule = new File(Screenshots + targetTeacher.toUpperCase() + "x2.png");
+
+                    // Отправка файлов пользователю
+                    bot.context.sendDocument(message.chat.id, mainSchedule).exec();
+                    bot.context.sendDocument(message.chat.id, additionalSchedule).exec();
+
+                } catch (Exception e) {
+                    // Подблок 5.4: Обработка ошибок
+                    bot.context.sendMessage("Ошибка при выполнении задачи, сори bipbop ").exec();
+                    System.out.println(e); // Логирование ошибки
+                }
+            });
+
+        } catch (Exception e) {
+            // БЛОК 6: Обработка общих ошибок
+            bot.context.sendMessage("Произошла непредвиденная ошибка").exec();
+            e.printStackTrace();
+        }
+    }
+
     private static boolean isRateLimitExceeded(long userId, Map<Long, List<Long>> userRequestTimestamps) {
         List<Long> timestamps = userRequestTimestamps.computeIfAbsent(userId, k -> new CopyOnWriteArrayList<>());
         long currentTime = System.currentTimeMillis();

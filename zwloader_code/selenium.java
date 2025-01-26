@@ -23,10 +23,9 @@ public class selenium {
     static final String Groups = dotenv.get("GROUPS");
     static final String Site = dotenv.get("SITE");
     static final String Screenshots = dotenv.get("SCREENSHOTS");
+    static final String TEACHERS_url = dotenv.get("TEACHER");
+    static final String TEACHERS = dotenv.get("TEACHERS");
 
-//        public static void main(String[] args) throws MalformedURLException {
-//            writeGroups();
-//    }
     public static String performTask(String targetGroupName) {
         WebDriver driver = null;
         String result = "";
@@ -86,7 +85,7 @@ public class selenium {
 //                System.out.println(href);
                 driver.get(href);
                 if (groupName.contains("МТО") || groupName.contains("ЭКБУ") || groupName.contains("ОСА") || groupName.contains("УКП")){
-                    driver.manage().window().setSize(new Dimension(3000, 2000));// Для "мто" размер экрана больше
+                    driver.manage().window().setSize(new Dimension(2200, 1800));// Для "мто" размер экрана больше
                     File screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
                     Files.copy(screenshot, new File(Screenshots+taggroup+".png"));
                     driver.manage().window().setSize(new Dimension(3000, 3000));
@@ -117,6 +116,7 @@ public class selenium {
 
         return result;
     }
+
     public static void  writeGroups() throws MalformedURLException {
         WebDriver driver = null;
         String result = "";
@@ -143,7 +143,7 @@ public class selenium {
 
             // Поиск всех ссылок с классом 'z0'
             List<WebElement> elements = driver.findElements(By.xpath("//a[contains(@class, 'z0')]"));
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(Groups))) {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter("Groups.txt"))) {
                 for (WebElement element : elements) {
                     writer.write(element.getText());
                     writer.newLine();
@@ -154,5 +154,128 @@ public class selenium {
         } finally {
             driver.quit();
         }
+    }
+    public static void  writeTeacher() throws MalformedURLException {
+        WebDriver driver = null;
+        String result = "";
+
+        try {
+            // Настройка подключения к Selenium Grid
+            URL hubUrl = new URL(HUB);
+
+            FirefoxOptions options = new FirefoxOptions();
+
+            options.setPageLoadStrategy(PageLoadStrategy.EAGER);
+            options.addArguments("--headless");  // Запуск браузера в фоновом режиме
+            options.addArguments("--disable-dev-shm-usage");
+            options.addArguments("--no-sandbox");
+            options.addArguments("--disable-gpu");
+            options.addArguments("--ignore-certificate-errors");
+            options.addArguments("--ignore-ssl-errors");
+
+            // Создание WebDriver
+            driver = new RemoteWebDriver(hubUrl, options);
+
+            // Переход на страницу
+            driver.get(TEACHERS_url);
+
+            // Поиск всех ссылок с классом 'z0'
+            List<WebElement> elements = driver.findElements(By.xpath("//a[contains(@class, 'z0')]"));
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter("TEACHERS.txt"))) {
+                for (WebElement element : elements) {
+                    writer.write(element.getText());
+                    writer.newLine();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } finally {
+            driver.quit();
+        }
+    }
+
+    public static String performTaskTech(String targetTech) {
+        WebDriver driver = null;
+        String result = "";
+
+        try {
+            // Настройка подключения к Selenium Grid
+            URL hubUrl = new URL(HUB);
+
+            FirefoxOptions options = new FirefoxOptions();
+
+            options.setPageLoadStrategy(PageLoadStrategy.EAGER);
+            options.addArguments("--headless");  // Запуск браузера в фоновом режиме
+            options.addArguments("--disable-dev-shm-usage");
+            options.addArguments("--no-sandbox");
+            options.addArguments("--disable-gpu");
+            options.addArguments("--ignore-certificate-errors");
+            options.addArguments("--ignore-ssl-errors");
+
+            // Создание WebDriver
+            driver = new RemoteWebDriver(hubUrl, options);
+
+            // Переход на страницу
+            driver.get(TEACHERS_url);
+
+            // Поиск всех ссылок с классом 'z0'
+            List<WebElement> elements = driver.findElements(By.xpath("//a[contains(@class, 'z0')]"));
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(TEACHERS))) {
+                for (WebElement element : elements) {
+                    writer.write(element.getText());
+                    writer.newLine();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+//            List<WebElement> elements = driver.findElements(By.cssSelector("a.z0"));
+            // Поиск нужной группы
+            boolean FoundTech = false;
+            for (WebElement element : elements) {
+                String groupName = element.getText().toLowerCase(); // Текст ссылки в нижнем регистре
+                if (groupName.equals(targetTech.toLowerCase())) { // Сравниваем с названием группы
+                    String href = element.getAttribute("href"); // Получаем значение href
+                    result = "Препод: " + groupName.toUpperCase() + ", Ссылка: " + href; // Приводим группу к верхнему регистру
+                    FoundTech = true;
+//                    System.out.printf(result.split(", Ссылка:")[1]);
+                    break; // Выходим из цикла после нахождения группы
+                }
+            }
+
+            if (FoundTech) {
+                String tagTech;
+                String groupName = result.split(",")[0].replace("Препод: ", "");
+//                System.out.println(groupName);
+                tagTech = result.split(",")[0];
+
+                tagTech = tagTech.replace("Препод: ", ""); // отвечает за приписку препод
+
+                String href=result.split(", Ссылка:")[1];
+                System.out.println(href);
+                driver.get(href);
+//                System.out.println("Debug: Ожидание загрузки страницы - 15 секунд");
+//                TimeUnit.SECONDS.sleep(15);
+                driver.manage().window().setSize(new Dimension(1250, 1800));  // Стандартный размер экрана
+                File screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+                Files.copy(screenshot, new File(Screenshots+tagTech+".png"));
+                driver.manage().window().setSize(new Dimension(1250, 3000));
+                screenshot = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+                Files.copy(screenshot, new File(Screenshots+tagTech +"x2"+".png"));
+            }
+            else{
+                result = "Группа \"" + targetTech + "\" не найдена.";
+            }
+
+        } catch (MalformedURLException e) {
+            result = "Ошибка: Неверный URL хаба!";
+        } catch (Exception e) {
+            result = "Ошибка при выполнении задачи: " + e.getMessage();
+        } finally {
+            if (driver != null) {
+                driver.quit();
+            }
+        }
+
+        return result;
     }
 }

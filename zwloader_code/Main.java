@@ -1,7 +1,9 @@
+
 import et.telebof.BotClient;
 import et.telebof.enums.MenuButtonType;
 import et.telebof.enums.PollType;
 import et.telebof.filters.CustomFilter;
+import et.telebof.filters.Filter;
 import io.github.cdimascio.dotenv.Dotenv;
 import et.telebof.types.*;
 import et.telebof.types.InlineKeyboardMarkup;
@@ -14,6 +16,7 @@ import et.telebof.types.InputTextMessageContent;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -65,49 +68,67 @@ public class Main {
                 .add(System.currentTimeMillis());
     }
 
-
-    private static List<String> filterGroupsByCourse(String filePath, String group, String course) {
-        List<String> filteredGroups = new ArrayList<>();
-        List<String> allGroups = new ArrayList<>();
-
+    private static void loadButtonLabels(String filePath) {
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
-            // Сначала читаем все группы из файла
             while ((line = reader.readLine()) != null) {
-                allGroups.add(line.trim());
+                buttonLabels.add(line.trim());
             }
-
-            // Фильтруем группы по специальности и курсу
-            for (String label : allGroups) {
-                // Проверяем, что группа начинается с нужной специальности и курса
-                // Например, для "исп" и "1" подойдут "исп-11", "исп-12" и т.д.
-                if (label.startsWith(group.toUpperCase() + "-" + course)) {
-                    filteredGroups.add(label);
-                }
-            }
-
-            System.out.println("Найденные группы: " + filteredGroups);
+            System.out.println("Кнопки успешно загружены: " + buttonLabels);
         } catch (IOException e) {
-            System.err.println("Ошибка при чтении файла групп: " + e.getMessage());
+            System.err.println("Ошибка при загрузке кнопок: " + e.getMessage());
+        }
+    }
+
+    private static List<String> filterGroupsByCourse(String group, String course) {
+        List<String> filteredGroups = new ArrayList<>();
+
+        for (String label : buttonLabels) {
+            if (label.startsWith(group + "-" + course)) {
+                filteredGroups.add(label);
+            }
         }
 
         return filteredGroups;
     }
 
-    // Загрузка переменных окружения
+    private static void loadButtonTeacher(String filePath) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                buttonLabelsTeacher.add(line.trim());
+            }
+            System.out.println("Кнопки успешно загружены: " + buttonLabelsTeacher);
+        } catch (IOException e) {
+            System.err.println("Ошибка при загрузке кнопок: " + e.getMessage());
+        }
+    }
+    private static ReplyKeyboardMarkup createCheckCommandsMarkup(List<String> groups) {
+        ReplyKeyboardMarkup markup = new ReplyKeyboardMarkup().resizeKeyboard(true);
+
+        for (String group : groups) {
+            markup.add("/check " + group);
+        }
+
+        return markup;
+    }
+
     static Dotenv dotenv = Dotenv.configure()
             .directory("/app")
             .filename(".env")
             .load();
 
+
     static final String TOKEN = dotenv.get("TOKEN");
     static final String Groups = dotenv.get("GROUPS");
     static final String Screenshots = dotenv.get("SCREENSHOTS");
+    static final String TEACHERS  = dotenv.get("TEACHERS");
 
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static final ExecutorService seleniumExecutor = Executors.newFixedThreadPool(4);
 
     private static List<String> buttonLabels = new ArrayList<>();
+    private static List<String> buttonLabelsTeacher = new ArrayList<>();
 
     public static void main(String[] args) {
         // Создание экземпляра бота
@@ -117,7 +138,9 @@ public class Main {
                 .build();
 
         // Загрузка кнопок
-//        filterGroupsByCourse(Groups);
+        loadButtonLabels(Groups);
+        loadButtonTeacher(TEACHERS);
+
         // Обработчик команды /start - новая реализация с кнопками специальностей
         bot.onMessage(filter -> filter.commands("start"), (context, message) -> {
             InlineKeyboardMarkup specialtyMarkup = new InlineKeyboardMarkup();
@@ -129,8 +152,8 @@ public class Main {
                     new InlineKeyboardButton("ТОД").callbackData("group_тод"),
                     new InlineKeyboardButton("УКП").callbackData("group_укп"),
                     new InlineKeyboardButton("ЭКБУ").callbackData("group_экбу"),
-                    new InlineKeyboardButton("ОСА").callbackData("group_оса")
-
+                    new InlineKeyboardButton("ОСА").callbackData("group_оса"),
+                    new InlineKeyboardButton("Преподаватели").callbackData("teacher")
             );
 
             var messageto = bot.context.sendMessage("Привет! Выберите вашу специальность:")
@@ -159,7 +182,6 @@ public class Main {
                         new InlineKeyboardButton("1 курс").callbackData("course_" + group + "_1"),
                         new InlineKeyboardButton("2 курс").callbackData("course_" + group + "_2"),
                         new InlineKeyboardButton("3 курс").callbackData("course_" + group + "_3"),
-                        new InlineKeyboardButton("4 курс").callbackData("course_" + group + "_4"),
 
                         // Кнопка возврата к выбору специальности
                         new InlineKeyboardButton("← Назад").callbackData("back_specialty")
@@ -180,7 +202,7 @@ public class Main {
                 String course = parts[2];      // Курс
 
                 // Фильтрация групп для выбранной специальности и курса
-                List<String> filteredGroups = filterGroupsByCourse(Groups, group.toUpperCase(), course);
+                List<String> filteredGroups = filterGroupsByCourse(group.toUpperCase(), course);
 
                 // Проверка наличия групп
                 if (filteredGroups.isEmpty()) {
@@ -222,7 +244,8 @@ public class Main {
                         new InlineKeyboardButton("ТОД").callbackData("group_тод"),
                         new InlineKeyboardButton("УКП").callbackData("group_укп"),
                         new InlineKeyboardButton("ЭКБУ").callbackData("group_экбу"),
-                        new InlineKeyboardButton("ОСА").callbackData("group_оса")
+                        new InlineKeyboardButton("ОСА").callbackData("group_оса"),
+                        new InlineKeyboardButton("Преподаватели").callbackData("teacher")
                 );
 
                 // Возврат к экрану выбора специальности
@@ -242,7 +265,6 @@ public class Main {
                         new InlineKeyboardButton("1 курс").callbackData("course_" + group + "_1"),
                         new InlineKeyboardButton("2 курс").callbackData("course_" + group + "_2"),
                         new InlineKeyboardButton("3 курс").callbackData("course_" + group + "_3"),
-                        new InlineKeyboardButton("4 курс").callbackData("course_" + group + "_4"),
                         new InlineKeyboardButton("← Назад").callbackData("back_specialty")
                 );
 
@@ -251,6 +273,27 @@ public class Main {
                         .replyMarkup(courseMarkup)
                         .exec();
 
+            }
+            else if (callbackData.startsWith("teacher")) {
+                InlineKeyboardMarkup groupMarkup = new InlineKeyboardMarkup();
+
+                // Динамическое создание кнопок для найденных групп
+                for (String groupLabelTeach : buttonLabelsTeacher) {
+                    groupMarkup.addKeyboard(
+                            // Каждая кнопка ведет к проверке препода
+                            new InlineKeyboardButton(groupLabelTeach).callbackData("/checkt " + groupLabelTeach)
+                    );
+                }
+
+                // Кнопка возврата к выбору курса
+                groupMarkup.addKeyboard(
+                        new InlineKeyboardButton("← Назад").callbackData("back_specialty")
+                );
+
+                // Изменение текущего сообщения для отображения списка препода
+                context.editMessageText("Выберите вашего препода:", chatId, callback.message.message_id)
+                        .replyMarkup(groupMarkup)
+                        .exec();
             }
             // БЛОК 5: Финальный выбор группы
             else if (callbackData.startsWith("/check ")) {
@@ -262,6 +305,18 @@ public class Main {
                         userId,
                         callbackData,
                         buttonLabels,
+                        userRequestTimestamps
+                );
+            }
+            else if (callbackData.startsWith("/checkt ")) {
+                // Вызов специального обработчика для проверки выбранной группы
+                // Передача всех необходимых параметров для дальнейшей обработки
+                CheckHandler.handleCheckTeach(
+                        bot,
+                        callback.message,
+                        userId,
+                        callbackData,
+                        buttonLabelsTeacher,
                         userRequestTimestamps
                 );
             }
@@ -327,6 +382,7 @@ public class Main {
         });
 
         bot.onMessage(filter -> filter.commands("quarantine"), (context, message) -> {
+
             bot.context.sendMessage("После выбора ответа, вы его поменять не сможете, выбирайте с умом").exec();
             String question = "Болеете ли вы со справкой?";
             InputPollOption[] options = {
@@ -336,7 +392,6 @@ public class Main {
                     new InputPollOption("Пойду за справкой"),
                     new InputPollOption("Для куратора,чтобы посмотреть кто как проголосовал")
             };
-
             bot.context.sendPoll(message.chat.id, question, options)
                     .isAnonymous(false)
                     .type(PollType.QUIZ)
@@ -344,14 +399,25 @@ public class Main {
                     .explanation("Мы институт, мы не знаем что такое карантин")
                     .exec();
         });
-
         bot.onMessage(filter -> filter.commands("kill"), (context, message) -> {
-            ReplyKeyboardRemove removeKeyboard = new ReplyKeyboardRemove().selective(false);
+            ReplyKeyboardRemove removeKeyboard = new ReplyKeyboardRemove().selective(true);
             bot.context.sendMessage("Кнопки капут")
                     .replyMarkup(removeKeyboard)
                     .exec();
         });
-
+        bot.onMessage(filter -> filter.commands("Groups"), (context, message) -> {
+            Long user = message.chat.id;
+            if (user == "your id"){
+                try {
+                    selenium.writeGroups();
+                    selenium.writeTeacher();
+                    bot.context.sendMessage("Готово!");
+                } catch (MalformedURLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            else context.sendMessage("Вы ошиблись!");
+        });
         bot.onMessage(
                 filter -> filter.text() && filter.customFilter(new UnknownCommandFilter(BotCommand)),
                 (context, message) -> {
